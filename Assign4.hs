@@ -1,34 +1,35 @@
 module Assign4 where
 
-import Control.Monad.State
+import Control.Monad.ST
+import Data.List
 
 type LInt = Int
 
 type TInt = Int
 
 data Lam = LAbst LInt Lam
+    | LApp Lam Lam
     | LVar LInt
     | LPair Lam Lam
     | LPCase LInt LInt Lam Lam
     | LPUnit
-    | LUCase Lam Lam
-    | LApp Lam Lam
+    | LUCase Lam Lam  
     | LZero
     | LSucc
     | LNCase LInt Lam Lam Lam
     | LLNil
     | LLCons
     | LLCase LInt Lam Lam LInt
-    | LFix Lam
+    | LFix Lam deriving (Eq, Show, Read)
     
 
 
-data Type = TVar TInt  --We want to create a show func such as shoow:: TVar n -> "n", TFun (t,t') -> (|[t}|,|[t']|))
+data Type = TVar TInt  --We want to create a show func such as show:: TVar n -> "n", TFun (t,t') -> (|[t}|,|[t']|))
     | TFun (Type, Type)
     | TProd (Type, Type)
     | TList Type
     | TUnit
-    | TNat
+    | TNat deriving (Eq, Show, Read)
 
 data TEqn = Simp (Type, Type) --"="
         | Exists ([TInt],[TEqn])
@@ -40,7 +41,7 @@ typeInfer:: Lam -> Type
 typeInfer lam = TNat
 
 showType:: Type -> String
-showType typ = ""
+showType typ = show typ
 
 
 --addAbst:: State (Context,TInt) ()
@@ -69,42 +70,43 @@ unify list = TNat
 
 --Tutorial Nov 27 - Cole
 
-Solving Type Equations
+--Solving Type Equations
 
-type Subst = (Tint, Type)
+type Subst = (TInt, Type)
 
 --1. Vars on left of TEQN
 --2. Vars on right
---3. boud vars
+--3. bound vars
 --4. Lis of substitutions
 
-type Package (([TInt]1,[TInt]2),[TInt]3[Subst]4)
+--type Package (([TInt]1,[TInt]2),([TInt]3,[Subst]4))
 
-therexists 1,2.1 = 2 x 3 => ([1],[2,3],[1,2]...)
+--therexists 1,2.1 = 2 x 3 => ([1],[2,3],[1,2]...)
 
-foldType:: (TInt -> a ) -> ((a,a) -> a) . _ ._ -> Type -> a
+--foldType:: (TInt -> a ) -> (((a,a) -> a) . _ ._) -> Type -> a
 
-foldTEqn::((Type,TYpe) -> a -> ([TInt] -> [a[] -> a) -> TEqn -> a
+--foldTEqn::(Type,Type) -> a -> ([TInt] -> a[] -> a)) -> TEqn -> a
 
-solveTEqns:: [TEqn] -> Package
+--solveTEqns:: [TEqn] -> Package
 --use (foldTEqn) to solve things here
 
-infer:: Lam -> Type
-infer2 = rename(fix(TVar 0))
-    where
-        fix ty = case ty == (substituteAll ty subs) of
-            True -> 
-            False -> fix (substituteAll, ty subs)
-        (_,_, subs) = solve TEqns (genEqns2)
+--infer:: Lam -> Type
+--infer2 = rename(fix(TVar 0))
+--    where
+--        fix ty = case ty == (substituteAll ty subs) of
+--            True -> 
+--            False -> fix (substituteAll, ty subs)
+--        (_,_, subs) = solve TEqns (genEqns2)
         
         
 substituteAll:: Type -> [Subst] -> Type
 substituteAll  = foldr substitute
 
+
 substitute:: Subst -> Type -> Type
+substitute subts typ = typ
 
-
-combinePackage:: [Package] -> Package
+--combinePackage:: [Package] -> Package
 --in this function you will have to call the linearize
 -- each time you combine the package, you are doing the unifcation, i.e. this is the unification step
 
@@ -116,15 +118,17 @@ coalesce:: Subst -> [Subst] -> [Subst]
 coalesce _ [] = []
 colaesce (t,ty) ((t',ty'):subs) = union subs' subs''
     where
-        sbus' coalesce (t,ty) subs
-        subs'' case (t==t') of
+        subs' = coalesce (t,ty) subs
+        subs'' = case (t==t') of
             True ->  match (ty,ty')
-            False -> [occurseCheck(t',(substitute(t,ty) ty'))]
+            False -> [occursCheck(t',(substitute(t,ty) ty'))]
 
 occursCheck:: Subst -> Subst
+occursCheck subst = subst
 --1 = 1 x 2 would be a fail
 
 match:: (Type, Type) -> [(TInt, Type)]
+match (typ1,typ2) = []
 --use a zip, recursion
 -- f(x,y) = f(z * y, w)
 --  x = z * y 
