@@ -14,11 +14,12 @@ counter = do
     (a,num) <- get
     put (a, num + 1)
     
-dec:: State (Int, Int) ()
+    
+dec:: State (Int, Int) String
 dec = do
     (num,a) <- get
     put (num + 1,a)
-    
+    return "NO"
 
 
 getInput n = do

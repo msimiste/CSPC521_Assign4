@@ -1,11 +1,20 @@
 module Assign4 where
 
-import Control.Monad.ST
+import Control.Monad.State
 import Data.List
 
 type LInt = Int
-
 type TInt = Int
+type Subst = (TInt, Type)
+--newtype State (Context,Int) (Context, Int, [TEqn])
+
+--1. Vars on left of TEQN
+--2. Vars on right
+--3. bound vars
+--4. Lis of substitutions
+
+--type Package (([TInt]1,[TInt]2),([TInt]3,[Subst]4))
+type Package = (([TInt], [TInt]), ([TInt], [Subst]))
 
 data Lam = LAbst LInt Lam
     | LApp Lam Lam
@@ -25,38 +34,78 @@ data Lam = LAbst LInt Lam
 
 
 data Type = TVar TInt  --We want to create a show func such as show:: TVar n -> "n", TFun (t,t') -> (|[t}|,|[t']|))
-    | TFun (Type, Type)
-    | TProd (Type, Type)
-    | TList Type
-    | TUnit
+    | TFun (Type, Type) -- Arrow
+    | TProd (Type, Type) -- Pair
+    | TList Type -- List
+    | TUnit -- 
     | TNat deriving (Eq, Show, Read)
 
 data TEqn = Simp (Type, Type) --"="
-        | Exists ([TInt],[TEqn])
+        | Exists ([TInt],[TEqn]) deriving (Eq, Show, Read)
         
 data Context = Context [(LInt, TInt)]
 
 --functions    
 typeInfer:: Lam -> Type
-typeInfer lam = TNat
+typeInfer lam = retType where
+    eqns = genTypeEqns lam
+    retType = unify eqns
 
 showType:: Type -> String
 showType typ = show typ
 
+addToContext:: LInt -> Context -> TInt -> Context
+addToContext l (Context c) t = ctex where
+     ctex = Context ((l,t+1):c)
+     
+    
+      
+addAbst:: State (Context,TInt) TEqn 
+--addAbst st =  state (\(l,n) -> (Exists[n+1,n+2], Simp(TVar n, TFun (n+1,n+2), (_,n+2)))) st
+addAbst = state (\(c,n) -> ((Exists ([n+1,n+2],[Simp(TVar n, TFun (TVar (n+1),TVar (n+2)))])), (c,n+2)))
 
---addAbst:: State (Context,TInt) ()
---addAbst st =  state (\(l,n) -> (Exists[n+1,n+2], Simp(TVar n, TFun (n+1,n+2), (_,n+2))))st
+addVar:: State(Context,TInt) TEqn
+addVar = state (\k ->  ((Simp (TVar 99, TUnit)), k))
 
---genTypeEqns:: Lam -> [TEqn]
---genTypeEqns l = fst (runState (genTypeEqnsHelper l) ([],0))
+genTypeEqns:: Lam -> [TEqn]
+genTypeEqns l = fst (runState (genTypeEqnsHelper l) (Context [],0))
 
 
 --To Generate type equations, Cole suggests to have a helper function
 
                                  ---a -> a xb
                                  --a   b               
---genTypeEqnsHelper:: Lam -> State (Context, TInt) ([TEqn])
+genTypeEqnsHelper:: Lam -> State (Context, TInt) [TEqn]
 --genTypeEqnsHelper lam = state (_,_) ([])
+genTypeEqnsHelper lam = case lam of
+    
+    LAbst lint lam1 -> do
+        (ctex,tint) <- get
+        let c = addToContext lint ctex tint
+        put(c,tint+1)
+        eqs <- addAbst
+        eqs1 <- genTypeEqnsHelper lam1
+        return (eqs:eqs1)
+        
+    --LApp lam1 lam2 ->
+    LVar lint -> do
+        val <- addVar
+        return [val]
+    
+    _ -> error("error")
+    --LPair lam1 lam2 ->
+    --LPCase lint1 lint2 lam1 lam2 -> 
+    --LPUnit -> 
+    --LUCase lam1 lam2 ->  
+    --LZero ->
+    --LSucc ->
+    --LNCase lint1 lam1 lam2 lam3 ->
+    --LLNil ->
+    --LLCons ->
+    --LLCase lint1 lam1 lam2 lint2
+    --LFix lam1 -> 
+
+
 
 unify::[TEqn] -> Type
 unify list = TNat
@@ -72,14 +121,7 @@ unify list = TNat
 
 --Solving Type Equations
 
-type Subst = (TInt, Type)
 
---1. Vars on left of TEQN
---2. Vars on right
---3. bound vars
---4. Lis of substitutions
-
---type Package (([TInt]1,[TInt]2),([TInt]3,[Subst]4))
 
 --therexists 1,2.1 = 2 x 3 => ([1],[2,3],[1,2]...)
 
@@ -137,7 +179,7 @@ match (typ1,typ2) = []
 -- 1. (_ -> _)
 -- 2. (_ * _)
 -- 3. [_]
-
+--
 --cole example
 --[0 = 1x2, 1=3, 3=2 -> 4, 3 = 4 -> 2]subst
 --[0 = 1 x 2, 1 = 2 -> 4, 1 = 4 -> 2] match
@@ -146,6 +188,6 @@ match (typ1,typ2) = []
 --[0 = (2 -> 2) x 2]
 -- [0 = (1 -> 1) x 1]
 
-
+term = LAbst 1 (LVar 2)
 
 
