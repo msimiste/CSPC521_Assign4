@@ -2,6 +2,7 @@ module Assign4 where
 
 import Control.Monad.State
 import Data.List
+import Data.Maybe
 
 type LInt = Int
 type TInt = Int
@@ -64,8 +65,30 @@ addAbst:: State (Context,TInt) TEqn
 --addAbst st =  state (\(l,n) -> (Exists[n+1,n+2], Simp(TVar n, TFun (n+1,n+2), (_,n+2)))) st
 addAbst = state (\(c,n) -> ((Exists ([n+1,n+2],[Simp(TVar n, TFun (TVar (n+1),TVar (n+2)))])), (c,n+2)))
 
-addVar:: State(Context,TInt) TEqn
-addVar = state (\k ->  ((Simp (TVar 99, TUnit)), k))
+--addVar:: State(Context,TInt) TEqn
+--addVar lint = state (\(c,n) ->  case ((varHelper lint c n)) of
+--    Nothing -> (Simp (TVar (-1), TVar (n+1)), (c,n+1))
+--    Just num -> (Simp (TVar num, TVar (n+1)), (c,n+1)))
+
+addVar:: LInt -> State(Context, TInt) TEqn
+addVar num = state(\(c,n) -> ((Simp (TVar num, TVar (n+1))), (c,n+1)))
+
+
+addUVar:: State(Context, TInt) TEqn
+addUVar = state(\(c,n) -> (Simp (TVar (-1), TVar (n+1)), (c,n+1)))
+
+
+varHelper:: LInt -> TInt -> Context -> Maybe Int
+varHelper l t (Context c) = tList where
+    tList = case (l `elem` cList) of 
+        True -> Just (lint)
+        False -> Nothing 
+    cList = (map fst c)
+    tList2 = (map snd c)
+    lint = tList2 !! (getIndex l cList)
+
+getIndex::(Eq a) => a -> [a] -> Int
+getIndex a la = fromJust (elemIndex a la)
 
 genTypeEqns:: Lam -> [TEqn]
 genTypeEqns l = fst (runState (genTypeEqnsHelper l) (Context [],0))
@@ -89,8 +112,17 @@ genTypeEqnsHelper lam = case lam of
         
     --LApp lam1 lam2 ->
     LVar lint -> do
-        val <- addVar
-        return [val]
+        (ctex,tint) <- get
+        aVar <- addVar lint
+        addUVar <- addUVar
+        case (False) of 
+        --case (varHelper lint tint ctex) of
+            True -> return [aVar]
+            False -> return [addUVar]
+        --case (varHelper lint ctex tint) of
+        --    Nothing -> return addUVar
+        --    Just num ->  return [addVar lint]
+        
     
     _ -> error("error")
     --LPair lam1 lam2 ->
