@@ -57,9 +57,7 @@ showType typ = show typ
 
 addToContext:: LInt -> Context -> TInt -> Context
 addToContext l (Context c) t = ctex where
-     ctex = Context ((l,t+1):c)
-     
-    
+     ctex = Context ((l,t+1):c)   
       
 addAbst:: State (Context,TInt) TEqn 
 --addAbst st =  state (\(l,n) -> (Exists[n+1,n+2], Simp(TVar n, TFun (n+1,n+2), (_,n+2)))) st
@@ -71,27 +69,28 @@ addAbst = state (\(c,n) -> ((Exists ([n+1,n+2],[Simp(TVar n, TFun (TVar (n+1),TV
 --    Just num -> (Simp (TVar num, TVar (n+1)), (c,n+1)))
 
 addVar:: LInt -> State(Context, TInt) TEqn
-addVar num = state(\(c,n) -> ((Simp (TVar num, TVar (n+1))), (c,n+1)))
+addVar num = state(\(c,n) -> ((Simp (TVar num, TVar (n))), (c,n+1)))
 
 
 addUVar:: State(Context, TInt) TEqn
-addUVar = state(\(c,n) -> (Simp (TVar (-1), TVar (n+1)), (c,n+1)))
+addUVar = state(\(c,n) -> (Simp (TVar (-1), TVar (n)), (c,n+1)))
 
 
-varHelper:: LInt -> TInt -> Context -> Maybe Int
-varHelper l t (Context c) = tList where
-    tList = case (l `elem` cList) of 
-        True -> Just (lint)
+varHelper:: LInt -> Context -> Maybe Int
+varHelper l (Context c) = lint where
+    lint = case (l `elem` firstsOfContext) of 
+        True -> Just (li)
         False -> Nothing 
-    cList = (map fst c)
-    tList2 = (map snd c)
-    lint = tList2 !! (getIndex l cList)
+    firstsOfContext = (map fst c)
+    secondsOfContext = (map snd c)
+    indexOfL = (getIndex l firstsOfContext)
+    li = secondsOfContext !! indexOfL
 
 getIndex::(Eq a) => a -> [a] -> Int
 getIndex a la = fromJust (elemIndex a la)
 
 genTypeEqns:: Lam -> [TEqn]
-genTypeEqns l = fst (runState (genTypeEqnsHelper l) (Context [],0))
+genTypeEqns l = fst (runState (genTypeEqnsHelper l) (Context [],1))
 
 
 --To Generate type equations, Cole suggests to have a helper function
@@ -104,8 +103,8 @@ genTypeEqnsHelper lam = case lam of
     
     LAbst lint lam1 -> do
         (ctex,tint) <- get
-        let c = addToContext lint ctex tint
-        put(c,tint+1)
+        let c = addToContext lint ctex tint       
+        put(c,tint)
         eqs <- addAbst
         eqs1 <- genTypeEqnsHelper lam1
         return (eqs:eqs1)
@@ -113,16 +112,14 @@ genTypeEqnsHelper lam = case lam of
     --LApp lam1 lam2 ->
     LVar lint -> do
         (ctex,tint) <- get
-        aVar <- addVar lint
-        addUVar <- addUVar
-        case (False) of 
-        --case (varHelper lint tint ctex) of
-            True -> return [aVar]
-            False -> return [addUVar]
-        --case (varHelper lint ctex tint) of
-        --    Nothing -> return addUVar
-        --    Just num ->  return [addVar lint]
-        
+        let compVal = varHelper lint ctex       
+        case compVal of 
+            Just val -> do
+                aVar <- addVar val
+                return [aVar]
+            Nothing -> do
+                aUVar <- addUVar
+                return [aUVar]  
     
     _ -> error("error")
     --LPair lam1 lam2 ->
@@ -220,6 +217,8 @@ match (typ1,typ2) = []
 --[0 = (2 -> 2) x 2]
 -- [0 = (1 -> 1) x 1]
 
-term = LAbst 1 (LVar 2)
+term = LAbst 1 (LVar 1)
+
+term2 = LAbst 1 (LAbst 2 (LAbst 3 (LVar 2)))
 
 
