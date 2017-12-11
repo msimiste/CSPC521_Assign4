@@ -43,8 +43,8 @@ typeInfer lam = retType where
     eqns = genTypeEqns lam
     retType = unify eqns
 
-showType:: Type -> String
-showType typ = show typ
+--showType:: Type -> String
+--showType typ = show typ
 
 addToContext:: LInt -> Context -> TInt -> Context
 addToContext l (Context c) t = ctex where
@@ -66,7 +66,7 @@ addPair:: State (Context, TInt) TEqn
 addPair  = state (\(c,n) -> ((Exists ([n+1,n+2],[Simp(TVar n, TProd (TVar (n+1),TVar (n+2)))])), (c,n+1)))
 
 addPCase:: TInt -> State (Context, TInt) TEqn
-addPCase tint = state (\(c,n) -> ((Exists ([tint+1,tint+2,n+1],[Simp(TVar (n+1), TProd (TVar (tint+1),TVar (tint+2)))])), (c,n+1)))
+addPCase tint = state (\(c,n) -> ((Exists ([tint+1,tint+2,n],[Simp(TVar (n), TProd (TVar (tint+1),TVar (tint+2)))])), (c,n)))
 
 
 varHelper:: LInt -> Context -> Maybe Int
@@ -136,7 +136,7 @@ genTypeEqnsHelper lam = case lam of
         put(c1,thirdN)
         
         eq <- addPCase firstN
-        put(c1,thirdN+1)
+        --put(c1,thirdN)
         
         eqs2 <- genTypeEqnsHelper lam1                 
        
@@ -210,9 +210,24 @@ term8 = LPair (LVar 1) (LVar 2)
 
 term9 = LAbst 1 (LPCase 2 3 (LVar 1) (LPair (LVar 2)(LVar 3)))
 
+foldTeqn:: ((Type,Type)-> a) -> (([TInt], [a])->a) -> TEqn -> a
+foldTeqn f1 f2  (Simp (t1, t2)) = f1 (t1,t2)
+foldTeqn f1 f2 (Exists (list1, list2))  = f2 (list1, map (foldTeqn f1 f2) list2 )   
 
+prettyP:: [TEqn] -> String
+prettyP eqns = foldr (++) "" (map pretty1 eqns)
 
+pretty1:: TEqn -> String
+pretty1 = foldTeqn (\(a,b) -> (showType a) ++ "=" ++ (showType b)++", ")
+                   (\(a,b) -> "Exists" ++ (show a) ++ ":" ++ (show b))
 
+showType:: Type -> String
+showType (TVar n) = show n
+showType (TFun (t1,t2)) = "(" ++ (showType t1) ++ "->" ++ (showType t2) ++ ")"
+showType (TProd (t1,t2)) = "(" ++ (showType t1) ++ "x" ++ (showType t2) ++ ")"
+showType (TList t1) = "[" ++ (showType t1) ++ "] "
+showType (TUnit) = "()"
+showType (TNat) = "N"
 
 --Notes from tutorial
 
