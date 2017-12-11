@@ -77,6 +77,8 @@ addApp = state (\(c,n) -> ((Exists ([n+2,n+1],[Simp(TVar (n+1), TFun (TVar (n+2)
 addFix:: State (Context, TInt) TEqn
 addFix = state (\(c,n) -> ((Exists ([n+1], [Simp(TVar (n+1), TFun (TVar n, TVar n))])), (c, n+1)))
 
+addPair:: State (Context, TInt) TEqn
+addPair  = state (\(c,n) -> ((Exists ([n+1,n+2],[Simp(TVar n, TProd (TVar (n+1),TVar (n+2)))])), (c,n+1)))
 --addUVar:: State(Context, TInt) TEqn
 --addUVar = state(\(c,n) -> (Simp (TVar (-1), TVar (n)), (c,n+1)))
 
@@ -136,6 +138,13 @@ genTypeEqnsHelper lam = case lam of
         eq <- addFix
         eqs <- genTypeEqnsHelper lam1
         return (eq:eqs)
+    
+    LPair lam1 lam2 -> do
+        eq <- addPair
+        eqs1 <- genTypeEqnsHelper lam1
+        eqs2 <- genTypeEqnsHelper lam2
+        return (eq:(eqs1 ++ eqs2))
+        
     _ -> error("error")
     --LPair lam1 lam2 ->
     --LPCase lint1 lint2 lam1 lam2 -> 
@@ -245,5 +254,7 @@ term5 = LAbst 1 (LApp (LVar 1) (LVar 2))
 term6 = LAbst 1 ( LAbst 2 (LApp (LVar 1) (LVar 2)))
 
 term7 = LFix term
+
+term8 = LPair (LVar 1) (LVar 2)
 
 
