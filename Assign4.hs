@@ -210,6 +210,8 @@ term8 = LPair (LVar 1) (LVar 2)
 
 term9 = LAbst 1 (LPCase 2 3 (LVar 1) (LPair (LVar 2)(LVar 3)))
 
+term10 = LApp (term3) (LPCase 1 4 (LVar 3) (LPair (LVar 2)(LVar 1)))
+
 foldTeqn:: ((Type,Type)-> a) -> (([TInt], [a])->a) -> TEqn -> a
 foldTeqn f1 f2  (Simp (t1, t2)) = f1 (t1,t2)
 foldTeqn f1 f2 (Exists (list1, list2))  = f2 (list1, map (foldTeqn f1 f2) list2 )   
