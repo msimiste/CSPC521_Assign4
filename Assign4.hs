@@ -7,14 +7,6 @@ import Data.Maybe
 type LInt = Int
 type TInt = Int
 type Subst = (TInt, Type)
---newtype State (Context,Int) (Context, Int, [TEqn])
-
---1. Vars on left of TEQN
---2. Vars on right
---3. bound vars
---4. Lis of substitutions
-
---type Package (([TInt]1,[TInt]2),([TInt]3,[Subst]4))
 type Package = (([TInt], [TInt]), ([TInt], [Subst]))
 
 data Lam = LAbst LInt Lam
@@ -30,8 +22,7 @@ data Lam = LAbst LInt Lam
     | LLNil
     | LLCons
     | LLCase LInt Lam Lam LInt
-    | LFix Lam deriving (Eq, Show, Read)
-    
+    | LFix Lam deriving (Eq, Show, Read) 
 
 
 data Type = TVar TInt  --We want to create a show func such as show:: TVar n -> "n", TFun (t,t') -> (|[t}|,|[t']|))
@@ -60,13 +51,7 @@ addToContext l (Context c) t = ctex where
      ctex = Context ((l,t+1):c)   
       
 addAbst:: State (Context,TInt) TEqn 
---addAbst st =  state (\(l,n) -> (Exists[n+1,n+2], Simp(TVar n, TFun (n+1,n+2), (_,n+2)))) st
 addAbst = state (\(c,n) -> ((Exists ([n+1,n+2],[Simp(TVar n, TFun (TVar (n+1),TVar (n+2)))])), (c,n+2)))
-
---addVar:: State(Context,TInt) TEqn
---addVar lint = state (\(c,n) ->  case ((varHelper lint c n)) of
---    Nothing -> (Simp (TVar (-1), TVar (n+1)), (c,n+1))
---    Just num -> (Simp (TVar num, TVar (n+1)), (c,n+1)))
 
 addVar:: LInt -> State(Context, TInt) TEqn
 addVar num = state(\(c,n) -> ((Simp (TVar num, TVar (n))), (c,n+1)))
@@ -79,10 +64,9 @@ addFix = state (\(c,n) -> ((Exists ([n+1], [Simp(TVar (n+1), TFun (TVar n, TVar 
 
 addPair:: State (Context, TInt) TEqn
 addPair  = state (\(c,n) -> ((Exists ([n+1,n+2],[Simp(TVar n, TProd (TVar (n+1),TVar (n+2)))])), (c,n+1)))
---addUVar:: State(Context, TInt) TEqn
---addUVar = state(\(c,n) -> (Simp (TVar (-1), TVar (n)), (c,n+1)))
 
-
+addPCase:: TInt -> State (Context, TInt) TEqn
+addPCase tint = state (\(c,n) -> ((Exists ([tint+1,tint+2,n+1],[Simp(TVar (n+1), TProd (TVar (tint+1),TVar (tint+2)))])), (c,n+1)))
 
 
 varHelper:: LInt -> Context -> Maybe Int
@@ -103,11 +87,8 @@ genTypeEqns l = fst (runState (genTypeEqnsHelper l) (Context [],1))
 
 
 --To Generate type equations, Cole suggests to have a helper function
-
-                                 ---a -> a xb
-                                 --a   b               
+             
 genTypeEqnsHelper:: Lam -> State (Context, TInt) [TEqn]
---genTypeEqnsHelper lam = state (_,_) ([])
 genTypeEqnsHelper lam = case lam of
     
     LAbst lint lam1 -> do
@@ -120,8 +101,8 @@ genTypeEqnsHelper lam = case lam of
         
     LApp lam1 lam2 -> do
         eq <- addApp
-        eqs1 <- genTypeEqnsHelper lam1
         eqs2 <- genTypeEqnsHelper lam2
+        eqs1 <- genTypeEqnsHelper lam1
         return (eq:(eqs1 ++ eqs2))
         
     LVar lint -> do
@@ -131,8 +112,7 @@ genTypeEqnsHelper lam = case lam of
             Just val -> do
                 aVar <- addVar val
                 return [aVar]
-            Nothing -> do
-                --aUVar <- addUVar
+            Nothing -> do                
                 return []  
     LFix lam1 -> do
         eq <- addFix
@@ -141,9 +121,26 @@ genTypeEqnsHelper lam = case lam of
     
     LPair lam1 lam2 -> do
         eq <- addPair
-        eqs1 <- genTypeEqnsHelper lam1
         eqs2 <- genTypeEqnsHelper lam2
+        eqs1 <- genTypeEqnsHelper lam1
         return (eq:(eqs1 ++ eqs2))
+        
+    LPCase lint1 lint2 lam1 lam2 -> do
+        (c1,firstN) <- get
+        let newC = addToContext lint1 c1 (firstN)       
+        let newc2 = addToContext lint2 newC (firstN+1)
+        put(newc2,firstN+2)
+        
+        eqs1 <- genTypeEqnsHelper lam2
+        (c3,thirdN) <- get
+        put(c1,thirdN)
+        
+        eq <- addPCase firstN
+        put(c1,thirdN+1)
+        
+        eqs2 <- genTypeEqnsHelper lam1                 
+       
+        return (eq:(eqs2 ++ eqs1))               
         
     _ -> error("error")
     --LPair lam1 lam2 ->
@@ -158,41 +155,8 @@ genTypeEqnsHelper lam = case lam of
     --LLCase lint1 lam1 lam2 lint2
     --LFix lam1 -> 
 
-
-
 unify::[TEqn] -> Type
 unify list = TNat
-
---1. Generate type equations
---    -build up the tree
---    -Generate equations
---    -solve all equations -- easier to do these all in one step when programming, easier to do all steps when doing by hand.
---
---2. Unify Type equations
-
---Tutorial Nov 27 - Cole
-
---Solving Type Equations
-
-
-
---therexists 1,2.1 = 2 x 3 => ([1],[2,3],[1,2]...)
-
---foldType:: (TInt -> a ) -> (((a,a) -> a) . _ ._) -> Type -> a
-
---foldTEqn::(Type,Type) -> a -> ([TInt] -> a[] -> a)) -> TEqn -> a
-
---solveTEqns:: [TEqn] -> Package
---use (foldTEqn) to solve things here
-
---infer:: Lam -> Type
---infer2 = rename(fix(TVar 0))
---    where
---        fix ty = case ty == (substituteAll ty subs) of
---            True -> 
---            False -> fix (substituteAll, ty subs)
---        (_,_, subs) = solve TEqns (genEqns2)
-        
         
 substituteAll:: Type -> [Subst] -> Type
 substituteAll  = foldr substitute
@@ -224,6 +188,65 @@ occursCheck subst = subst
 
 match:: (Type, Type) -> [(TInt, Type)]
 match (typ1,typ2) = []
+
+
+term = LAbst 1 (LVar 1)
+
+term1 = LAbst 1 (LApp (LVar 1)(LVar 1))
+
+term2 = LAbst 1 (LAbst 2 (LAbst 3 (LVar 2)))
+
+term3 = LApp ( LAbst 1 (LApp (LVar 1) (LAbst 2 (LVar 2)))) (LVar 3)
+
+term4 = LApp ( LAbst 1 (LApp (LVar 1) (LAbst 2 (LVar 2)))) (LVar 2)
+
+term5 = LAbst 1 (LApp (LVar 1) (LVar 2))
+
+term6 = LAbst 1 ( LAbst 2 (LApp (LVar 1) (LVar 2)))
+
+term7 = LFix term
+
+term8 = LPair (LVar 1) (LVar 2)
+
+term9 = LAbst 1 (LPCase 2 3 (LVar 1) (LPair (LVar 2)(LVar 3)))
+
+
+
+
+
+--Notes from tutorial
+
+--1. Generate type equations
+--    -build up the tree
+--    -Generate equations
+--    -solve all equations -- easier to do these all in one step when programming, easier to do all steps when doing by hand.
+--
+--2. Unify Type equations
+
+--Tutorial Nov 27 - Cole
+
+--Solving Type Equations
+
+
+
+--therexists 1,2.1 = 2 x 3 => ([1],[2,3],[1,2]...)
+
+--foldType:: (TInt -> a ) -> (((a,a) -> a) . _ ._) -> Type -> a
+
+--foldTEqn::(Type,Type) -> a -> ([TInt] -> a[] -> a)) -> TEqn -> a
+
+--solveTEqns:: [TEqn] -> Package
+--use (foldTEqn) to solve things here
+
+--infer:: Lam -> Type
+--infer2 = rename(fix(TVar 0))
+--    where
+--        fix ty = case ty == (substituteAll ty subs) of
+--            True -> 
+--            False -> fix (substituteAll, ty subs)
+--        (_,_, subs) = solve TEqns (genEqns2)
+        
+
 --use a zip, recursion
 -- f(x,y) = f(z * y, w)
 --  x = z * y 
@@ -240,21 +263,4 @@ match (typ1,typ2) = []
 --[0 = 1 x 2, 1 = 2 -> 2]
 --[0 = (2 -> 2) x 2]
 -- [0 = (1 -> 1) x 1]
-
-term = LAbst 1 (LVar 1)
-
-term2 = LAbst 1 (LAbst 2 (LAbst 3 (LVar 2)))
-
-term3 = LApp ( LAbst 1 (LApp (LVar 1) (LAbst 2 (LVar 2)))) (LVar 3)
-
-term4 = LApp ( LAbst 1 (LApp (LVar 1) (LAbst 2 (LVar 2)))) (LVar 2)
-
-term5 = LAbst 1 (LApp (LVar 1) (LVar 2))
-
-term6 = LAbst 1 ( LAbst 2 (LApp (LVar 1) (LVar 2)))
-
-term7 = LFix term
-
-term8 = LPair (LVar 1) (LVar 2)
-
 
