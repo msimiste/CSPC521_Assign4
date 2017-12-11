@@ -71,9 +71,16 @@ addAbst = state (\(c,n) -> ((Exists ([n+1,n+2],[Simp(TVar n, TFun (TVar (n+1),TV
 addVar:: LInt -> State(Context, TInt) TEqn
 addVar num = state(\(c,n) -> ((Simp (TVar num, TVar (n))), (c,n+1)))
 
+addApp:: State (Context, TInt) TEqn
+addApp = state (\(c,n) -> ((Exists ([n+2,n+1],[Simp(TVar (n+1), TFun (TVar (n+2),TVar (n)))])), (c,n+1)))
 
-addUVar:: State(Context, TInt) TEqn
-addUVar = state(\(c,n) -> (Simp (TVar (-1), TVar (n)), (c,n+1)))
+addFix:: State (Context, TInt) TEqn
+addFix = state (\(c,n) -> ((Exists ([n+1], [Simp(TVar (n+1), TFun (TVar n, TVar n))])), (c, n+1)))
+
+--addUVar:: State(Context, TInt) TEqn
+--addUVar = state(\(c,n) -> (Simp (TVar (-1), TVar (n)), (c,n+1)))
+
+
 
 
 varHelper:: LInt -> Context -> Maybe Int
@@ -109,7 +116,12 @@ genTypeEqnsHelper lam = case lam of
         eqs1 <- genTypeEqnsHelper lam1
         return (eqs:eqs1)
         
-    --LApp lam1 lam2 ->
+    LApp lam1 lam2 -> do
+        eq <- addApp
+        eqs1 <- genTypeEqnsHelper lam1
+        eqs2 <- genTypeEqnsHelper lam2
+        return (eq:(eqs1 ++ eqs2))
+        
     LVar lint -> do
         (ctex,tint) <- get
         let compVal = varHelper lint ctex       
@@ -118,9 +130,12 @@ genTypeEqnsHelper lam = case lam of
                 aVar <- addVar val
                 return [aVar]
             Nothing -> do
-                aUVar <- addUVar
-                return [aUVar]  
-    
+                --aUVar <- addUVar
+                return []  
+    LFix lam1 -> do
+        eq <- addFix
+        eqs <- genTypeEqnsHelper lam1
+        return (eq:eqs)
     _ -> error("error")
     --LPair lam1 lam2 ->
     --LPCase lint1 lint2 lam1 lam2 -> 
@@ -220,5 +235,15 @@ match (typ1,typ2) = []
 term = LAbst 1 (LVar 1)
 
 term2 = LAbst 1 (LAbst 2 (LAbst 3 (LVar 2)))
+
+term3 = LApp ( LAbst 1 (LApp (LVar 1) (LAbst 2 (LVar 2)))) (LVar 3)
+
+term4 = LApp ( LAbst 1 (LApp (LVar 1) (LAbst 2 (LVar 2)))) (LVar 2)
+
+term5 = LAbst 1 (LApp (LVar 1) (LVar 2))
+
+term6 = LAbst 1 ( LAbst 2 (LApp (LVar 1) (LVar 2)))
+
+term7 = LFix term
 
 
