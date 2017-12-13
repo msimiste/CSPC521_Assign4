@@ -14,7 +14,7 @@ data Lam = LAbst LInt Lam
     | LVar LInt
     | LPair Lam Lam
     | LPCase LInt LInt Lam Lam
-    | LPUnit
+    | LUnit
     | LUCase Lam Lam  
     | LZero
     | LSucc
@@ -66,22 +66,31 @@ addPair:: TInt -> TInt -> State (Context, TInt) TEqn
 addPair t1 t2  = state (\(c,n) -> ((Exists ([t2,t1],[Simp(TVar (t1-1), TProd (TVar (t2),TVar (t1)))])), (c,t2)))
 
 addPCase:: TInt -> TInt -> State (Context, TInt) TEqn
-addPCase t1 t2 = state (\(c,n) -> ((Exists ([t1-1,t1,t2],[Simp(TVar (t2), TProd (TVar (t1-1),TVar (t1)))])), (c,t2)))
+addPCase t1 t2 = state (\(c,n) -> ((Exists ([t2,t1+1,t1+2,t1+3],[Simp(TVar (t2), TProd (TVar (t1+1),TVar (t1+2))),Simp(TVar t1, TVar (t1+3))])), (c,t2)))
 
-addPUnit:: State (Context, TInt) TEqn
-addPUnit = state(\(c,n) -> ((Simp (TVar (n), TUnit)), (c,n+1)))
+addUnit:: State (Context, TInt) TEqn
+addUnit = state(\(c,n) -> ((Simp (TVar (n), TUnit)), (c,n+1)))
 
 --addUCase:: TInt -> State (Context, TInt) TEqn
 --addUCase tint = state (\(c,n) -> ((Exists ([tint+1], [Simp (TVar (tint+1), TUnit)])), (c, n)))
 
-addUCase:: State (Context, TInt) TEqn
-addUCase = state (\(c,n) -> ((Exists ([n+1], [Simp (TVar (n+1), TUnit)])), (c, n)))
+addUCase:: TInt -> State (Context, TInt) TEqn
+addUCase t1 = state (\(c,n) -> ((Exists ([t1], [Simp (TVar (t1), TUnit)])), (c, n)))
 
 addLSucc:: State (Context, TInt) TEqn
-addLSucc = state(\(c,n) -> ((Simp (TVar n, TFun(TNat, TNat))), (c,n)))
+addLSucc = state(\(c,n) -> ((Simp (TVar n, TFun(TNat, TNat))), (c,n+1)))
 
 addLZero:: State (Context, TInt) TEqn
-addLZero = state(\(c,n) -> ((Simp (TVar n, TNat)), (c,n)))
+addLZero = state(\(c,n) -> ((Simp (TVar n, TNat)), (c,n+1)))
+
+addNil:: State (Context, TInt) TEqn
+addNil = state(\(c,n) -> ((Exists([n+1], [Simp (TVar n, TList (TVar (n+1)))])), (c,n+1)))
+   
+addCons:: State (Context, TInt) TEqn
+addCons = state(\(c,n) -> ((Exists([n+1], [Simp (TVar n, TFun(TProd ((TVar (n+1)) ,TList (TVar (n+1))), TList (TVar (n+1))))])), (c,n+1)))
+
+addLNCase:: TInt -> TInt -> TInt -> TInt -> State (Context, TInt) TEqn
+addLNCase x1 y1 x2 y2 = state(\(c,n) -> ((Exists([x1,y1,x2,y2],[Simp(TVar (x1),TNat),Simp(TVar (x2),TNat),Simp(TVar (y1), TVar (y2-2)),Simp(TVar (y2),TVar (y2-2))])), (c,n)))
 
 varHelper:: LInt -> Context -> Maybe Int
 varHelper l (Context c) = lint where
@@ -154,35 +163,43 @@ genTypeEqnsHelper lam = case lam of
         (c1,firstN) <- get
         let newC = addToContext lint1 c1 (firstN)       
         let newc2 = addToContext lint2 newC (firstN+1)
-        put(newc2,firstN+2)        
-        eqs1 <- genTypeEqnsHelper lam2
+        put(newc2,firstN+3)        
+        eqs2 <- genTypeEqnsHelper lam2
         (c3,thirdN) <- get
         put(c1,thirdN) 
-        eq <- addPCase (firstN+2) (thirdN)      
-        eqs2 <- genTypeEqnsHelper lam1                 
+        eq <- addPCase (firstN) (thirdN)      
+        eqs1 <- genTypeEqnsHelper lam1                 
         
         return (eq:(eqs1 ++ eqs2))
     
-    LPUnit -> do
-        eq <- addPUnit
+    LUnit -> do
+        eq <- addUnit
         return [eq]
         
     LUCase lam1 lam2 -> do
-        (ctext,n1) <- get
+        (ctext,n1) <- get        
         eqs2 <- genTypeEqnsHelper lam2
         (c2,n2) <- get
-        put(ctext,n2)
-        
-        eq <- addUCase
-        --(c2,n3) <- get
-        
-        --put(ctext,n3)
-        
+        put(ctext,n2)        
+        eq <- addUCase n2               
+        eqs1 <- genTypeEqnsHelper lam1       
+        return (eq:(eqs1 ++ eqs2))
+    
+    LNCase lint1 lam1 lam2 lam3 -> do
+        (c1, q) <- get
+        let newC = addToContext lint1 c1 q
+        put(newC, q+2)
+        eqs3 <- genTypeEqnsHelper lam3
+        (c2, y1) <- get
+        put(c1,y1)
+        eqs2 <- genTypeEqnsHelper lam2
+        (c3,x1) <- get
+        put(c1,x1)
+        eq <- addLNCase x1 y1 (q+1) (q+2) 
         eqs1 <- genTypeEqnsHelper lam1
         
-
-       
-        return (eq:(eqs1 ++ eqs2))
+        return (eq:(eqs1 ++ eqs2 ++ eqs3))
+        
     LZero -> do
         eqn <- addLZero
         return [eqn]
@@ -191,15 +208,20 @@ genTypeEqnsHelper lam = case lam of
         eqn <- addLSucc
         return [eqn]
         
-    _ -> error("error")
-  
+    LLNil -> do
+        eqn <- addNil
+        return [eqn]
+        
+    LLCons -> do
+        eqn <- addCons
+        return [eqn]
+        
+    _ -> error("error")  
     
-    --LUCase lam1 lam2 ->  
-    --LZero ->
-    --LSucc ->
+   
+   
     --LNCase lint1 lam1 lam2 lam3 ->
-    --LLNil ->
-    --LLCons ->
+
     --LLCase lint1 lam1 lam2 lint2
  
 
@@ -277,6 +299,14 @@ term17 = LApp (LPair(LPair(LVar 1)(LVar 2))(LPair(LVar 3)(LVar 1))) (LAbst 1 (LA
 term18 = LApp(LApp (LVar 1)(LVar 1))(LApp(LVar 1)(LVar 1))
 
 term19 = LApp(LApp(LApp(LVar 1)(LVar 1))(LVar 1))(LVar 1)
+
+term20 = LAbst 4 (LLCons)
+
+term21 = LAbst 1 (LLNil)
+
+term22 = LNCase 99 (LVar 1) (LZero) (LSucc)
+
+
 
 
 
