@@ -21,7 +21,7 @@ data Lam = LAbst LInt Lam
     | LNCase LInt Lam Lam Lam
     | LLNil
     | LLCons
-    | LLCase LInt Lam Lam LInt
+    | LLCase LInt Lam Lam Lam
     | LFix Lam deriving (Eq, Show, Read) 
 
 
@@ -85,6 +85,9 @@ addCons = state(\(c,n) -> ((Exists([n+1], [Simp (TVar n, TFun(TProd ((TVar (n+1)
 
 addLNCase:: TInt -> TInt -> TInt -> TInt -> State (Context, TInt) TEqn
 addLNCase x1 y1 x2 y2 = state(\(c,n) -> ((Exists([x1,y1,x2,y2],[Simp(TVar (x1),TNat),Simp(TVar (x2),TNat),Simp(TVar (y1), TVar (y2-2)),Simp(TVar (y2),TVar (y2-2))])), (c,n)))
+
+addLLCase:: TInt -> TInt -> TInt -> TInt -> TInt -> State (Context, TInt) TEqn
+addLLCase x x1 y1 x2 y2 = state(\(c,n) -> ((Exists ([x,x1,y1,x2,y2],[Simp(TVar (x2),TProd(TVar (x),(TList (TVar (x))))),Simp(TVar x1,TList(TVar x)),Simp(TVar y1, TVar (y2-2)),Simp(TVar (y2), TVar (y2-2))])),(c,n)))
 
 varHelper:: LInt -> Context -> Maybe Int
 varHelper l (Context c) = lint where
@@ -208,16 +211,24 @@ genTypeEqnsHelper lam = case lam of
         
     LLCons -> do
         eqn <- addCons
-        return [eqn]
-        
-    _ -> error("error")  
-    
-   
-   
-    --LNCase lint1 lam1 lam2 lam3 ->
-
-    --LLCase lint1 lam1 lam2 lint2
+        return [eqn]  
  
+    LLCase lint1 lam1 lam2 lam3 -> do
+        (c1, q) <- get
+        let newC = addToContext lint1 c1 q
+        put(newC, q+2)
+        eqs3 <- genTypeEqnsHelper lam3
+        (c2, y1) <- get
+        put(c1,y1)
+        eqs2 <- genTypeEqnsHelper lam2
+        (c3,x) <- get
+        put(c1,(x+1))
+        (c4,x1) <- get
+        eq <- addLLCase x x1 y1 (q+1) (q+2) 
+        eqs1 <- genTypeEqnsHelper lam1
+        
+        return (eq:(eqs1 ++ eqs2 ++ eqs3))       
+   
 
 unify::[TEqn] -> Type
 unify list = TNat
@@ -300,8 +311,7 @@ term21 = LAbst 1 (LLNil)
 
 term22 = LNCase 99 (LVar 1) (LZero) (LSucc)
 
-
-
+term23 = LLCase 88 (LVar 1)(LVar 2)(LVar 3)
 
 
 foldTeqn:: ((Type,Type)-> a) -> (([TInt], [a])->a) -> TEqn -> a
