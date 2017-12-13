@@ -56,14 +56,14 @@ addAbst = state (\(c,n) -> ((Exists ([n+1,n+2],[Simp(TVar n, TFun (TVar (n+1),TV
 addVar:: LInt -> State(Context, TInt) TEqn
 addVar num = state(\(c,n) -> ((Simp (TVar num, TVar (n))), (c,n+1)))
 
-addApp:: State (Context, TInt) TEqn
-addApp = state (\(c,n) -> ((Exists ([n+2,n+1],[Simp(TVar (n+1), TFun (TVar (n+2),TVar (n)))])), (c,n+2)))
+addApp:: TInt -> TInt -> State (Context, TInt) TEqn
+addApp tint1 tint2  = state (\(c,n) -> ((Exists ([tint1,tint2],[Simp(TVar (tint2), TFun (TVar (tint1),TVar (tint1-1)))])), (c,tint2)))
 
 addFix:: State (Context, TInt) TEqn
 addFix = state (\(c,n) -> ((Exists ([n+1], [Simp(TVar (n+1), TFun (TVar n, TVar n))])), (c, n+1)))
 
 addPair:: State (Context, TInt) TEqn
-addPair  = state (\(c,n) -> ((Exists ([n+1,n+2],[Simp(TVar n, TProd (TVar (n+1),TVar (n+2)))])), (c,n+1)))
+addPair  = state (\(c,n) -> ((Exists ([n+1,n+2],[Simp(TVar n, TProd (TVar (n+1),TVar (n+2)))])), (c,n+2)))
 
 addPCase:: TInt -> State (Context, TInt) TEqn
 addPCase tint = state (\(c,n) -> ((Exists ([tint+1,tint+2,n],[Simp(TVar (n), TProd (TVar (tint+1),TVar (tint+2)))])), (c,n)))
@@ -114,13 +114,13 @@ genTypeEqnsHelper lam = case lam of
         return (eqs:eqs1)
         
     LApp lam1 lam2 -> do        
-        eq <- addApp  
-        (c, n) <- get        
-        eqs2 <- genTypeEqnsHelper lam2
-        (c1, n1) <- get
-        put(c1, (n-1))
-        eqs1 <- genTypeEqnsHelper lam1
-        return (eq:(eqs1 ++ eqs2))
+        (c, n1) <- get
+        put(c,(n1+1))
+        eqs2 <- genTypeEqnsHelper lam2        
+        (c1,n2) <- get
+        eq <- addApp (n1+1) (n2)
+        eqs1 <- genTypeEqnsHelper lam1         
+        return (eq:(eqs2 ++ eqs1))
         
     LVar lint -> do
         (ctex,tint) <- get
@@ -129,17 +129,22 @@ genTypeEqnsHelper lam = case lam of
             Just val -> do
                 aVar <- addVar val
                 return [aVar]
-            Nothing -> do                
+            Nothing -> do 
+                (c,n) <- get
+                put (c,(n+1))
                 return []  
     LFix lam1 -> do
         eq <- addFix
         eqs <- genTypeEqnsHelper lam1
         return (eq:eqs)
     
-    LPair lam1 lam2 -> do
-        eq <- addPair
+    LPair lam1 lam2 -> do      
+        (c,n) <-get
         eqs2 <- genTypeEqnsHelper lam2
+        (c1,n1) <- get
+        put(c,n1)
         eqs1 <- genTypeEqnsHelper lam1
+        eq <- addPair 
         return (eq:(eqs1 ++ eqs2))
         
     LPCase lint1 lint2 lam1 lam2 -> do
@@ -251,7 +256,7 @@ term7 = LFix term
 
 term8 = LPair (LVar 1) (LVar 2)
 
-term9 = LAbst 1 (LPCase 2 3 (LVar 1) (LPair (LVar 2)(LVar 3)))
+term9 = LAbst 1 (LPCase 2 3 (LVar 1) (LPair (LVar 3)(LVar 2)))
 
 term10 = LApp (term3) (LPCase 1 4 (LVar 3) (LPair (LVar 2)(LVar 1)))
 
@@ -261,7 +266,9 @@ term12 = LAbst 1 (LUCase (LVar 1) (LAbst 2 (LApp (LVar 2) (LVar 3))))
 
 term13 = LApp (LSucc) (LZero)
 
-term14 = LApp (LVar 1)(LVar 1)
+term14 = LApp (LAbst 1 (LApp (LVar 1)(LVar 1))) (LAbst 2 (LApp(LVar 1)(LVar 2)))
+
+term15 = LApp (LAbst 1 (LApp(LVar 1)(LVar 1))) (LAbst 2(LApp (LVar 1)(LVar 2)))
 
 foldTeqn:: ((Type,Type)-> a) -> (([TInt], [a])->a) -> TEqn -> a
 foldTeqn f1 f2  (Simp (t1, t2)) = f1 (t1,t2)
