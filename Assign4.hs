@@ -43,9 +43,6 @@ typeInfer lam = retType where
     eqns = genTypeEqns lam
     retType = unify eqns
 
---showType:: Type -> String
---showType typ = show typ
-
 addToContext:: LInt -> Context -> TInt -> Context
 addToContext l (Context c) t = ctex where
      ctex = Context ((l,t+1):c)   
@@ -70,9 +67,6 @@ addPCase t1 t2 = state (\(c,n) -> ((Exists ([t2,t1+1,t1+2,t1+3],[Simp(TVar (t2),
 
 addUnit:: State (Context, TInt) TEqn
 addUnit = state(\(c,n) -> ((Simp (TVar (n), TUnit)), (c,n+1)))
-
---addUCase:: TInt -> State (Context, TInt) TEqn
---addUCase tint = state (\(c,n) -> ((Exists ([tint+1], [Simp (TVar (tint+1), TUnit)])), (c, n)))
 
 addUCase:: TInt -> State (Context, TInt) TEqn
 addUCase t1 = state (\(c,n) -> ((Exists ([t1], [Simp (TVar (t1), TUnit)])), (c, n)))
