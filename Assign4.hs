@@ -264,12 +264,12 @@ substitute subts typ = typ
 
 
 combinePackage:: [Package] -> Package
-combinePackage pkgs = package where
-    substs = (concatMap (\((a,b),c,d) -> linearize d) pkgs)
-    tints1 = (concatMap (\((a,b),c,d) -> a) pkgs)
-    tints2 = (concatMap (\((a,b),c,d) -> b) pkgs)
-    tints3 = (concatMap (\((a,b),c,d) -> c) pkgs)
-    package = ((tints1, tints2), tints3, substs)
+combinePackage pkgs = foldr (\((a,b),c,d) ((lVars,rVars),eVars,subs) -> (((a++lVars),(b++rVars)),(c++eVars),((linearize d)++subs)))(([],[]),[],[]) pkgs
+--    substs = (concatMap (\((a,b),c,d) -> linearize d) pkgs)
+--    tints1 = (concatMap (\((a,b),c,d) -> a) pkgs)
+--    tints2 = (concatMap (\((a,b),c,d) -> b) pkgs)
+--    tints3 = (concatMap (\((a,b),c,d) -> c) pkgs)
+--    package = ((tints1, tints2), tints3, substs)
 
 --in this function you will have to call the linearize
 -- each time you combine the package, you are doing the unifcation, i.e. this is the unification step
@@ -341,13 +341,6 @@ term21 = LAbst 1 (LLNil)
 term22 = LNCase 99 (LVar 1) (LZero) (LSucc)
 
 term23 = LLCase 88 (LVar 1)(LVar 2)(LVar 3)
-
-
---foldTeqn:: ((Type,Type)-> a) -> (([TInt], [a])->a) -> TEqn -> a
---foldTeqn f1 f2  (Simp (t1, t2)) = f1 (t1,t2)
---foldTeqn f1 f2 (Exists (list1, list2))  = f2 (list1, map (foldTeqn f1 f2) list2 )   
-
-
 
 showType:: Type -> String
 showType (TVar n) = show n
