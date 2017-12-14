@@ -38,10 +38,10 @@ data TEqn = Simp (Type, Type) --"="
 data Context = Context [(LInt, TInt)]
 
 --functions    
---typeInfer:: Lam -> Type
---typeInfer lam = retType where
---    eqns = genTypeEqns lam
---    retType = unify eqns
+typeInfer:: Lam -> Type
+typeInfer lam = retType where
+    eqns = genTypeEqns lam
+    retType = unify eqns
 
 addToContext:: LInt -> Context -> TInt -> Context
 addToContext l (Context c) t = ctex where
@@ -230,73 +230,12 @@ genTypeEqnsHelper lam = case lam of
         return (eq:(eqs1 ++ eqs2 ++ eqs3))       
    
 
---unify::[TEqn] -> Type
-unify::[TEqn] -> Package
-unify teqns = pckg where
-    pckg = solveTEqns teqns
-    
-prettyP:: [TEqn] -> String
-prettyP eqns = foldr (++) "" (map pretty1 eqns)
-
-pretty1:: TEqn -> String
-pretty1 = foldTeqn (\(a,b) -> (showType a) ++ "=" ++ (showType b)++", ")
-                   (\(a,b) -> "Exists" ++ (show a) ++ ":" ++ (show b))
-                       
-solveTEqns:: [TEqn] -> Package
-solveTEqns teqns = head (map solveTEqn teqns)
-    
-solveTEqn:: TEqn -> Package
-solveTEqn = foldTeqn funSimp funExists where
-    funSimp ((TVar n), t) = (([n],[]),[],[(n,t)])
-    funExists (evars, []) = (([],[]),evars,[])
-    funExists (evars, pkgs) = combinePackage (pkgs ++ [(([],[]),evars,[])])
-
-foldTeqn:: ((Type,Type)-> a) -> (([TInt], [a])->a) -> TEqn -> a
-foldTeqn f1 f2  (Simp (t1, t2)) = f1 (t1,t2)
-foldTeqn f1 f2 (Exists (list1, list2))  = f2 (list1, map (foldTeqn f1 f2) list2 )  
-        
-substituteAll:: Type -> [Subst] -> Type
-substituteAll  = foldr substitute
 
 
-substitute:: Subst -> Type -> Type
-substitute subts typ = typ
 
+term = LAbst 1 (LVar 1)
 
-combinePackage:: [Package] -> Package
-combinePackage pkgs = package where
-    substs = (concatMap (\((a,b),c,d) -> linearize d) pkgs)
-    tints1 = (concatMap (\((a,b),c,d) -> a) pkgs)
-    tints2 = (concatMap (\((a,b),c,d) -> b) pkgs)
-    tints3 = (concatMap (\((a,b),c,d) -> c) pkgs)
-    package = ((tints1, tints2), tints3, substs)
-
---in this function you will have to call the linearize
--- each time you combine the package, you are doing the unifcation, i.e. this is the unification step
-
-linearize::[Subst] -> [Subst]
-linearize [] = []
-linearize (sub:subs) = sub:linearize(coalesce sub subs)
-
-coalesce:: Subst -> [Subst] -> [Subst]
-coalesce _ [] = []
-colaesce (t,ty) ((t',ty'):subs) = union subs' subs''
-    where
-        subs' = coalesce (t,ty) subs
-        subs'' = case (t==t') of
-            True ->  match (ty,ty')
-            False -> [occursCheck(t',(substitute(t,ty) ty'))]
-
-occursCheck:: Subst -> Subst
-occursCheck subst = subst
---1 = 1 x 2 would be a fail
-
-match:: (Type, Type) -> [(TInt, Type)]
-match (t,x) = []
-
-term = LApp (LVar 1) (LVar 2)
-
-term1 = LAbst 1 (LApp (LVar 1)(LVar 2))
+term1 = LAbst 1 (LApp (LVar 1)(LVar 1))
 
 term2 = LAbst 1 (LAbst 2 (LAbst 3 (LVar 2)))
 
@@ -343,11 +282,14 @@ term22 = LNCase 99 (LVar 1) (LZero) (LSucc)
 term23 = LLCase 88 (LVar 1)(LVar 2)(LVar 3)
 
 
---foldTeqn:: ((Type,Type)-> a) -> (([TInt], [a])->a) -> TEqn -> a
---foldTeqn f1 f2  (Simp (t1, t2)) = f1 (t1,t2)
---foldTeqn f1 f2 (Exists (list1, list2))  = f2 (list1, map (foldTeqn f1 f2) list2 )   
+ 
 
+prettyP:: [TEqn] -> String
+prettyP eqns = foldr (++) "" (map pretty1 eqns)
 
+pretty1:: TEqn -> String
+pretty1 = foldTeqn (\(a,b) -> (showType a) ++ "=" ++ (showType b)++", ")
+                   (\(a,b) -> "Exists" ++ (show a) ++ ":" ++ (show b))
 
 showType:: Type -> String
 showType (TVar n) = show n
@@ -356,8 +298,6 @@ showType (TProd (t1,t2)) = "(" ++ (showType t1) ++ "x" ++ (showType t2) ++ ")"
 showType (TList t1) = "[" ++ (showType t1) ++ "] "
 showType (TUnit) = "()"
 showType (TNat) = "N"
-
-
 
 --Notes from tutorial
 
@@ -380,7 +320,7 @@ showType (TNat) = "N"
 
 --foldTEqn::(Type,Type) -> a -> ([TInt] -> a[] -> a)) -> TEqn -> a
 
---solveTEqns:: [TEqn] -> Package
+-
 --use (foldTEqn) to solve things here
 
 --infer:: Lam -> Type
