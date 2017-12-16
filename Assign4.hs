@@ -264,7 +264,7 @@ substituteAll  = foldr substitute
 
 
 substitute:: Subst -> Type -> Type
-substitute subts typ = typ
+substitute (num, typ1) typ2 = typ2
 
 
 combinePackage:: [Package] -> Package
@@ -292,17 +292,45 @@ coalesce (t,ty) ((t',ty'):subs) = union subs' subs''
             False -> [occursCheck(t',(substitute(t,ty) ty'))]
 
 occursCheck:: Subst -> Subst
-occursCheck subst = subst
+occursCheck subst =  case (occursHelper (fst subst)(snd subst)) of
+    True -> subst
+    False -> error ("occurs check fails")
 --1 = 1 x 2 would be a fail
 
+occursHelper:: TInt -> Type -> Bool
+occursHelper int typ = case typ of
+    TUnit -> True
+    TNat -> True
+    TVar n -> (int /= n)
+    TList typ1 -> (occursHelper int typ1)
+    TFun (typ1, typ2) -> ((occursHelper int typ1) && (occursHelper int typ2))
+    TProd (typ1, typ2) -> ((occursHelper int typ1) && (occursHelper int typ2))
+    
 match:: (Type, Type) -> [(TInt, Type)]
-match (t,x) = error(show (t,x))
-
-term = LApp (LVar 1) (LVar 2)
+match (t1, t2) = case (t1) of--error(show (t1,t2)) 
+    TVar n1 -> [occursCheck (n1,t2)]
+    _ -> case (t2) of
+        TVar n2 -> [occursCheck (n2,t1)]
+        TFun (t3, t4) -> case (t1) of
+            TFun (t5, t6) -> (match (t3,t5)) ++ (match (t4,t6))
+            _ -> error("match fun error")
+        TProd (t3, t4) -> case (t1) of
+            TProd (t5, t6) -> (match (t3,t5)) ++ (match (t4,t6))
+        TList t3 -> case (t1) of
+            TList t4 -> match (t3,t4)
+            _ -> error("match Tlist error")        
+        TNat -> case t1 of
+            TNat -> []
+            _ -> error("match tNat error")            
+        TUnit -> case t1 of
+            TUnit -> []
+            _ -> error ("match prod error")
+            
+term = LApp (LVar 1) (LVar 1)
 
 term1 = LAbst 1 (LApp (LVar 1)(LVar 2))
 
-term2 = LAbst 1 (LAbst 2 (LAbst 3 (LVar 2)))
+term2 = LAbst 1 (LAbst 1 (LAbst 3 (LVar 2)))
 
 term3 = LApp ( LAbst 1 (LApp (LVar 1) (LAbst 2 (LVar 2)))) (LVar 3)
 
