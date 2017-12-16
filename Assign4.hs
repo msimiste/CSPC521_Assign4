@@ -243,7 +243,11 @@ pretty1 = foldTeqn (\(a,b) -> (showType a) ++ "=" ++ (showType b)++", ")
                    (\(a,b) -> "Exists" ++ (show a) ++ ":" ++ (show b))
                        
 solveTEqns:: [TEqn] -> Package
-solveTEqns teqns = head (map solveTEqn teqns)
+solveTEqns [] = (([],[]),[],[])
+solveTEqns (t:teqns) = package where
+    ((a,b),c,sub) = solveTEqn t
+    ((as,bs),cs,subs) = solveTEqns teqns
+    package = (((a++as),(b++bs)),(c++cs), (sub++subs))
     
 solveTEqn:: TEqn -> Package
 solveTEqn = foldTeqn funSimp funExists where
@@ -280,7 +284,7 @@ linearize (sub:subs) = sub:linearize(coalesce sub subs)
 
 coalesce:: Subst -> [Subst] -> [Subst]
 coalesce _ [] = []
-colaesce (t,ty) ((t',ty'):subs) = union subs' subs''
+coalesce (t,ty) ((t',ty'):subs) = union subs' subs''
     where
         subs' = coalesce (t,ty) subs
         subs'' = case (t==t') of
@@ -292,7 +296,7 @@ occursCheck subst = subst
 --1 = 1 x 2 would be a fail
 
 match:: (Type, Type) -> [(TInt, Type)]
-match (t,x) = []
+match (t,x) = error(show (t,x))
 
 term = LApp (LVar 1) (LVar 2)
 
@@ -381,7 +385,7 @@ showType (TNat) = "N"
 --    where
 --        fix ty = case ty == (substituteAll ty subs) of
 --            True -> 
---            False -> fix (substituteAll, ty subs)
+--            False -> fix (substituteAll ty subs)
 --        (_,_, subs) = solve TEqns (genEqns2)
         
 
