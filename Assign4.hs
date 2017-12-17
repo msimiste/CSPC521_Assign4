@@ -7,7 +7,6 @@ import Data.Maybe
 type LInt = Int
 type TInt = Int
 type Subst = (TInt, Type)
-type Package = (([TInt], [TInt]), [TInt], [Subst])
 
 data Lam = LAbst LInt Lam
     | LApp Lam Lam
@@ -37,11 +36,6 @@ data TEqn = Simp (Type, Type) --"="
         
 data Context = Context [(LInt, TInt)]
 
---functions    
---typeInfer:: Lam -> Type
---typeInfer lam = retType where
---    eqns = genTypeEqns lam
---    retType = unify eqns
 
 addToContext:: LInt -> Context -> TInt -> Context
 addToContext l (Context c) t = ctex where
@@ -106,8 +100,7 @@ genTypeEqns:: Lam -> [TEqn]
 genTypeEqns l = fst (runState (genTypeEqnsHelper l) (Context [],1))
 
 
---To Generate type equations, Cole suggests to have a helper function
-             
+--To Generate type equations, Cole suggests to have a helper function             
 genTypeEqnsHelper:: Lam -> State (Context, TInt) [TEqn]
 genTypeEqnsHelper lam = case lam of
     
@@ -139,7 +132,8 @@ genTypeEqnsHelper lam = case lam of
             Nothing -> do 
                 (c,n) <- get
                 put (c,(n+1))
-                return []  
+                return []
+                  
     LFix lam1 -> do
         eq <- addFix
         eqs <- genTypeEqnsHelper lam1
@@ -152,8 +146,7 @@ genTypeEqnsHelper lam = case lam of
         (c1,n1) <- get
         put(c,n1)
         eq <- addPair (n+1) n1       
-        eqs1 <- genTypeEqnsHelper lam1
-       
+        eqs1 <- genTypeEqnsHelper lam1       
         return (eq:(eqs1 ++ eqs2))
         
     LPCase lint1 lint2 lam1 lam2 -> do
@@ -165,8 +158,7 @@ genTypeEqnsHelper lam = case lam of
         (c3,thirdN) <- get
         put(c1,thirdN) 
         eq <- addPCase (firstN) (thirdN)      
-        eqs1 <- genTypeEqnsHelper lam1                 
-        
+        eqs1 <- genTypeEqnsHelper lam1             
         return (eq:(eqs1 ++ eqs2))
     
     LUnit -> do
@@ -193,8 +185,7 @@ genTypeEqnsHelper lam = case lam of
         (c3,x1) <- get
         put(c1,x1)
         eq <- addLNCase x1 y1 (q+1) (q+2) 
-        eqs1 <- genTypeEqnsHelper lam1
-        
+        eqs1 <- genTypeEqnsHelper lam1        
         return (eq:(eqs1 ++ eqs2 ++ eqs3))
         
     LZero -> do
@@ -225,8 +216,7 @@ genTypeEqnsHelper lam = case lam of
         put(c1,(x+1))
         (c4,x1) <- get
         eq <- addLLCase x x1 y1 (q+1) (q+2) 
-        eqs1 <- genTypeEqnsHelper lam1
-        
+        eqs1 <- genTypeEqnsHelper lam1        
         return (eq:(eqs1 ++ eqs2 ++ eqs3))       
 
 
@@ -235,27 +225,16 @@ infer lam = (fix(TVar 1)) where
         fix ty = case (ty == (substituteAll ty subs)) of           
             False -> fix (substituteAll ty subs)
             True -> ty
-        --(_,_, subs) = solveTEqns (genTypeEqns lam)   
         subs = solveTEqns (genTypeEqns lam)
---unify::[TEqn] -> Type
---unify::[TEqn] -> Package
---unify teqns = pckg where
---    pckg = solveTEqns teqns
+
     
 prettyP:: [TEqn] -> String
 prettyP eqns = foldr (++) "" (map pretty1 eqns)
 
 pretty1:: TEqn -> String
 pretty1 = foldTeqn (\(a,b) -> (showType a) ++ "=" ++ (showType b)++", ")
-                   (\(a,b) -> "Exists" ++ (show a) ++ ":" ++ (show b))
-                       
---solveTEqns:: [TEqn] -> Package
---solveTEqns [] = (([],[]),[],[])
---solveTEqns (t:teqns) = package where
---    ((a,b),c,sub) = solveTEqn t
---    ((as,bs),cs,subs) = solveTEqns teqns
---    package = (((a++as),(b++bs)),(c++cs), (sub++subs))
- 
+                   (\(a,b) -> "Exists" ++ (show a) ++ ":" ++ (show b))                    
+
 solveTEqns:: [TEqn] -> [Subst]
 solveTEqns [] = []
 solveTEqns (t:teqns) = result where
@@ -263,12 +242,6 @@ solveTEqns (t:teqns) = result where
     subs = solveTEqns teqns
     subLst =  (sub++subs)
     result = linearize subLst
-    
---solveTEqn:: TEqn -> Package
---solveTEqn = foldTeqn funSimp funExists where
---    funSimp ((TVar n), t) = (([n],[]),[],[(n,t)])
---    funExists (evars, []) = (([],[]),evars,[])
---    funExists (evars, pkgs) = combinePackage (pkgs ++ [(([],[]),evars,[])])
 
 solveTEqn:: TEqn -> [Subst]
 solveTEqn = foldTeqn funSimp funExists where
@@ -296,16 +269,6 @@ substitute (num, typ1) (TList t1) = TList (substitute (num,typ1) t1)
 substitute (num, typ1) TNat = TNat
 substitute (num, typ1) TUnit = TUnit
 
-
-
-combinePackage:: [Package] -> Package
-combinePackage pkgs = foldr (\((a,b),c, d) ((lVars,rVars),eVars,subs) -> (((a++lVars),(b++rVars)),(c++eVars),((linearize d)++ subs)))(([],[]),[],[]) pkgs
-    -- substs = (concatMap (\((a,b),c,d) -> linearize d) pkgs)
-    -- tints1 = (concatMap (\((a,b),c,d) -> a) pkgs)
-    -- tints2 = (concatMap (\((a,b),c,d) -> b) pkgs)
-    -- tints3 = (concatMap (\((a,b),c,d) -> c) pkgs)
-    -- package = ((tints1, tints2), tints3, substs)
-
 --in this function you will have to call the linearize
 -- each time you combine the package, you are doing the unifcation, i.e. this is the unification step
 
@@ -324,9 +287,9 @@ coalesce (t,ty) ((t',ty'):subs) = union subs' subs''
 
 occursCheck:: Subst -> Subst
 occursCheck subst =  case (occursHelper (fst subst)(snd subst)) of
-    True -> subst --error("occurs check true")--
+    True -> subst
     False -> error ("occurs check fails")
---1 = 1 x 2 would be a fail
+
 
 occursHelper:: TInt -> Type -> Bool
 occursHelper int typ = case typ of
@@ -347,30 +310,10 @@ match (TNat, TNat) = []
 match (TUnit, TUnit) = []
 match _ = error("testing")
 
-
 flatten:: [[a]] -> [a]
 flatten []  = []
 flatten xs = foldr (\acc x -> acc ++ x)[] xs
-
---match (t1, t2) = case (t1) of--error(show (t1,t2)) 
---    TVar n1 -> [occursCheck (n1,t2)]
---    _ -> case (t2) of
---        TVar n2 -> [occursCheck (n2,t1)]
---        TFun (t3, t4) -> case (t1) of
---            TFun (t5, t6) -> (match (t3,t5)) ++ (match (t4,t6))
---            _ -> error("match fun error")
---        TProd (t3, t4) -> case (t1) of
---            TProd (t5, t6) -> (match (t3,t5)) ++ (match (t4,t6))
---        TList t3 -> case (t1) of
---            TList t4 -> match (t3,t4)
---            _ -> error("match Tlist error")        
---        TNat -> case t1 of
---            TNat -> []
---            _ -> error("match tNat error")            
---        TUnit -> case t1 of
---            TUnit -> []
---            _ -> error ("match prod error")
-            
+         
 term = LApp (LVar 1) (LVar 1)
 
 term1 = LAbst 1 (LApp (LVar 1)(LVar 2))
@@ -422,20 +365,13 @@ pkg = [(([],[]),[],[(5,TFun ((TVar 4),(TVar 3)))]),(([5],[]),[],[(6,TVar 2)]),((
 pkg2 = [(([],[]),[],[(5,TFun ((TVar 4),(TVar 3)))]),(([5],[]),[],[(6,TVar 2)]),(([],[]),[4,5],[]), (([],[]),[],[(5,TFun ((TVar 4),(TVar 3)))]),(([5],[]),[],[(6,TVar 2)]),(([],[]),[4,5],[])]::[Package]
 
 subs = [(5,TFun ((TVar 4),(TVar 3))),(6,TVar 2), (5,TFun ((TVar 4),(TVar 3))),(6,TVar 2)]::[Subst]
---infer:: Lam -> Type
---infer2 = rename(fix(TVar 0))
---    where
---        fix ty = case ty == (substituteAll ty subs) of
---            True -> 
---            False -> fix (substituteAll ty subs)
---        (_,_, subs) = solve TEqns (genEqns2) 99 (LVar 1) (LZero) (LSucc)
 
 term23 = LLCase 88 (LVar 1)(LVar 2)(LVar 3)
 
 test = ((TFun ((TVar 6),(TVar 5))),(TProd((TFun((TVar 4),(TVar 3))),(TFun((TVar 2),(TVar 1))))))
 
 term24 = LAbst 1 (LApp (LSucc)(LZero))
---subsTest = [(1,TFun (TVar 2,TVar 3)),(5,TFun (TVar 4,TVar 3)),(2,TVar 5)]
+
 
 showType:: Type -> String
 showType (TVar n) = show n
@@ -447,52 +383,3 @@ showType (TNat) = "N"
 
 
 
---Notes from tutorial
-
---1. Generate type equations
---    -build up the tree
---    -Generate equations
---    -solve all equations -- easier to do these all in one step when programming, easier to do all steps when doing by hand.
---
---2. Unify Type equations
-
---Tutorial Nov 27 - Cole
-
---Solving Type Equations
-
-
-
---therexists 1,2.1 = 2 x 3 => ([1],[2,3],[1,2]...)
-
---foldType:: (TInt -> a ) -> (((a,a) -> a) . _ ._) -> Type -> a
-
---foldTEqn::(Type,Type) -> a -> ([TInt] -> a[] -> a)) -> TEqn -> a
-
---solveTEqns:: [TEqn] -> Package
---use (foldTEqn) to solve things here
-
---infer:: Lam -> Type
---infer2 = rename(fix(TVar 0))
---    where
---        fix ty = case ty == (substituteAll ty subs) of
---            True -> 
---            False -> fix (substituteAll ty subs)
---        (_,_, subs) = solve TEqns (genEqns2)
-        
-
---use a zip, recursion
--- f(x,y) = f(z * y, w)
---  x = z * y 
--- y = w
--- we have 3 functions
--- 1. (_ -> _)
--- 2. (_ * _)
--- 3. [_]
---
---cole example
---[0 = 1x2, 1=3, 3=2 -> 4, 3 = 4 -> 2]subst
---[0 = 1 x 2, 1 = 2 -> 4, 1 = 4 -> 2] match
---[0 = 1 x 2, 1 = 2 -> 4, 2=4, 4=2]subst
---[0 = 1 x 2, 1 = 2 -> 2]
---[0 = (2 -> 2) x 2]
--- [0 = (1 -> 1) x 1]
