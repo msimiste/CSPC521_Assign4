@@ -1,0 +1,35 @@
+#!/bin/bash
+
+rm test*
+for i in {1..25}
+do
+    touch "test${i}"
+done
+echo "(LApp (LVar 1) (LVar 1))" >> test1
+echo "(LAbst 1 (LApp (LVar 1)(LVar 2)))" >> test2
+echo "(LAbst 1 (LAbst 1 (LAbst 3 (LVar 2))))" >> test3
+echo "(LApp ( LAbst 1 (LApp (LVar 1) (LAbst 2 (LVar 2)))) (LVar 3))" >> test4
+echo "(LApp ( LAbst 1 (LApp (LVar 1) (LAbst 2 (LVar 2)))) (LVar 2))" >> test5
+echo "(LAbst 1 (LApp (LVar 1) (LVar 2)))" >> test6
+echo "(LAbst 1 (LAbst 2 (LApp (LVar 1) (LVar 2))))" >> test7
+echo "(LFix (LApp (LVar 1) (LVar 1)))" >> test8
+echo "(LPair (LVar 1) (LVar 2))" >> test9
+echo "(LAbst 1 (LPCase 2 3 (LVar 1) (LPair (LVar 3)(LVar 2))))" >> test10
+echo "(LApp (LAbst 1 (LAbst 1 (LAbst 3 (LVar 2)))) (LPCase 1 4 (LVar 3) (LPair (LVar 2)(LVar 1))))" >> test11
+echo "(LAbst 1 (LUCase (LVar 1) (LPair (LVar 2)(LVar 3))))" >> test12
+echo "(LAbst 1 (LUCase (LVar 1) (LAbst 2 (LApp (LVar 2) (LVar 3)))))" >> test13
+echo "(LApp (LSucc) (LZero))" >> test14
+echo "(LApp (LAbst 1 (LApp (LVar 1)(LVar 1))) (LAbst 2 (LApp(LVar 1)(LVar 2))))" >> test15
+echo "(LApp (LAbst 1 (LApp(LVar 1)(LVar 1))) (LAbst 2(LApp (LVar 1)(LVar 2))))" >> test16
+echo "(LApp (LPair(LVar 1)(LVar 2))(LPair(LVar 2)(LVar 3)))" >> test17
+echo "(LApp (LPair(LPair(LVar 1)(LVar 2))(LPair(LVar 3)(LVar 1))) (LAbst 1 (LApp (LVar 1)(LVar 1))))" >> test18
+echo "(LApp(LApp (LVar 1)(LVar 1))(LApp(LVar 1)(LVar 1)))" >> test19
+echo "(LApp(LApp(LApp(LVar 1)(LVar 1))(LVar 1))(LVar 1))" >> test20
+echo "(LAbst 4 (LLCons))" >> test21
+echo "(LAbst 1 (LLNil))" >> test22
+echo "(LAbst 1 (LApp (LVar 1)(LVar 1)))" >> test23
+echo "(LLCase 88 (LVar 1)(LVar 2)(LVar 3))" >> test24
+echo "(LAbst 1 (LApp (LSucc)(LZero)))" >> test25
+
+ghc --make main
+rm *.hi *.o
