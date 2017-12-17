@@ -230,10 +230,11 @@ genTypeEqnsHelper lam = case lam of
         return (eq:(eqs1 ++ eqs2 ++ eqs3))       
    
 
+
+flatten:: [[a]] -> [a]
+flatten []  = []
+flatten xs = foldr (\acc x -> acc ++ x)[] xs
 --unify::[TEqn] -> Type
-unify::[TEqn] -> Package
-unify teqns = pckg where
-    pckg = solveTEqns teqns
     
 prettyP:: [TEqn] -> String
 prettyP eqns = foldr (++) "" (map pretty1 eqns)
@@ -242,33 +243,47 @@ pretty1:: TEqn -> String
 pretty1 = foldTeqn (\(a,b) -> (showType a) ++ "=" ++ (showType b)++", ")
                    (\(a,b) -> "Exists" ++ (show a) ++ ":" ++ (show b))
                        
-solveTEqns:: [TEqn] -> Package
-solveTEqns [] = (([],[]),[],[])
-solveTEqns (t:teqns) = package where
-    ((a,b),c,sub) = solveTEqn t
-    ((as,bs),cs,subs) = solveTEqns teqns
-    package = (((a++as),(b++bs)),(c++cs), (sub++subs))
+solveTEqns:: [TEqn] -> [Subst]
+solveTEqns [] = []
+solveTEqns (t:teqns) = result where
+    sub = solveTEqn t
+    subs = solveTEqns teqns
+    subLst =  (sub++subs)
+    result = linearize subLst
     
-solveTEqn:: TEqn -> Package
+solveTEqn:: TEqn -> [Subst]
 solveTEqn = foldTeqn funSimp funExists where
-    funSimp ((TVar n), t) = (([n],[]),[],[(n,t)])
-    funExists (evars, []) = (([],[]),evars,[])
-    funExists (evars, pkgs) = combinePackage (pkgs ++ [(([],[]),evars,[])])
+    funSimp ((TVar n), t) = [(n, t)] :: [Subst]
+    funExists (evars, []) = [] :: [Subst]
+    funExists (evars, subs) = flatten $ subs :: [Subst]
 
 foldTeqn:: ((Type,Type)-> a) -> (([TInt], [a])->a) -> TEqn -> a
 foldTeqn f1 f2  (Simp (t1, t2)) = f1 (t1,t2)
 foldTeqn f1 f2 (Exists (list1, list2))  = f2 (list1, map (foldTeqn f1 f2) list2 )  
-        
+       
+ 
 substituteAll:: Type -> [Subst] -> Type
-substituteAll  = foldr substitute
+substituteAll ty [] = ty
+substituteAll ty (s:subs) = substituteAll (substitute s ty) subs
 
 
 substitute:: Subst -> Type -> Type
-substitute (num, typ1) typ2 = typ2
+substitute (sname, sfun) (TVar n) = if (n == sname) then sfun else (TVar n)
+substitute (sname, sfun) (TFun (t1, t2)) = TFun ((substitute (sname, sfun) t1),(substitute (sname, sfun) t2))
+substitute (sname, sfun) (TProd (t1, t2)) = TProd ((substitute (sname, sfun) t1), (substitute (sname, sfun) t2))
+substitute (sname, sfun) (TList t1) = TList (substitute (sname, sfun) t1)
+substitute (sname, sfun) (TUnit) = TUnit
+substitute (sname, sfun) (TNat) = TNat
+
 
 
 combinePackage:: [Package] -> Package
-combinePackage pkgs = foldr (\((a,b),c,d) ((lVars,rVars),eVars,subs) -> (((a++lVars),(b++rVars)),(c++eVars),((linearize d)++subs)))(([],[]),[],[]) pkgs
+combinePackage pkgs = foldr (\((a,b),c,d) ((lVars,rVars),eVars,subs) -> 
+				(((a++lVars),(b++rVars))
+			 	,(c++eVars)
+			 	,((linearize d) ++subs))
+			    )
+			(([],[]),[],[]) pkgs
 --    substs = (concatMap (\((a,b),c,d) -> linearize d) pkgs)
 --    tints1 = (concatMap (\((a,b),c,d) -> a) pkgs)
 --    tints2 = (concatMap (\((a,b),c,d) -> b) pkgs)
@@ -328,7 +343,7 @@ match (t1, t2) = case (t1) of--error(show (t1,t2))
             
 term = LApp (LVar 1) (LVar 1)
 
-term1 = LAbst 1 (LApp (LVar 1)(LVar 2))
+term1 = LAbst 1 (LApp (LVar 1)(LVar 1))
 
 term2 = LAbst 1 (LAbst 1 (LAbst 3 (LVar 2)))
 
